@@ -4,49 +4,97 @@ import java.io.File;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class MinecraftCMDLauncherGUI extends JFrame {
 
+    // ================= DEFAULT JAVA PATH =================
+    // Percorso di fallback su Windows quando non viene trovato un JDK
+    // portatile dentro la cartella ".java" accanto al launcher.
+    private static final String DEFAULT_WINDOWS_JAVA_PATH =
+            "C:\\Program Files (x86)\\Java\\jdk1.8.0_202\\bin\\java.exe";
+
     private JComboBox<String> versionBox;
+    private JComboBox<String> languageBox;
     private JTextField javaPathField;
+    private JTextField widthField;
+    private JTextField heightField;
     private JCheckBox useJavawBox;
+    private JCheckBox resizableBox;
+    private JLabel widthLabel;
+    private JLabel heightLabel;
+    private JButton browseJavaButton;
+    private JButton playButton;
     private JTextArea logArea;
 
     private final String gameDir;
+    private String lang = "it"; // lingua corrente: "it" oppure "en"
+
+    // ================= DIZIONARIO LINGUE =================
+    private final Map<String, String> it = new HashMap<>();
+    private final Map<String, String> en = new HashMap<>();
 
     public MinecraftCMDLauncherGUI() {
+
+        buildDictionaries();
 
         gameDir = resolveGameDir();
 
         setTitle("Minecraft CMD Launcher");
-        setSize(520, 360);
+        setSize(520, 440);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        JPanel top = new JPanel(new GridLayout(4, 1));
+        JPanel top = new JPanel(new GridLayout(7, 1));
+
+        languageBox = new JComboBox<>(new String[]{"Italiano", "English"});
+        languageBox.addActionListener(e -> {
+            lang = languageBox.getSelectedIndex() == 0 ? "it" : "en";
+            applyLanguage();
+        });
 
         versionBox = new JComboBox<>(loadVersions());
 
         javaPathField = new JTextField(guessJavaPath());
 
-        JButton browseJava = new JButton("Scegli Java");
-        browseJava.addActionListener(e -> chooseJava());
+        browseJavaButton = new JButton();
+        browseJavaButton.addActionListener(e -> chooseJava());
 
-        useJavawBox = new JCheckBox("Usa javaw (senza terminale)", false);
+        useJavawBox = new JCheckBox();
+        if (!isWindows()) {
+            useJavawBox.setToolTipText(t("javawTooltipNotAvailable"));
+        }
 
-        JButton playButton = new JButton("Gioca");
+        resizableBox = new JCheckBox();
+
+        widthField = new JTextField("854");
+        heightField = new JTextField("480");
+        widthLabel = new JLabel();
+        heightLabel = new JLabel();
+
+        JPanel sizePanel = new JPanel(new GridLayout(1, 4));
+        sizePanel.add(widthLabel);
+        sizePanel.add(widthField);
+        sizePanel.add(heightLabel);
+        sizePanel.add(heightField);
+
+        playButton = new JButton();
         playButton.addActionListener(e -> launch());
 
         JPanel javaPanel = new JPanel(new BorderLayout());
         javaPanel.add(javaPathField, BorderLayout.CENTER);
-        javaPanel.add(browseJava, BorderLayout.EAST);
+        javaPanel.add(browseJavaButton, BorderLayout.EAST);
 
+        top.add(languageBox);
         top.add(versionBox);
         top.add(javaPanel);
+        top.add(sizePanel);
         top.add(useJavawBox);
+        top.add(resizableBox);
         top.add(playButton);
 
         add(top, BorderLayout.NORTH);
@@ -55,16 +103,87 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         logArea.setEditable(false);
         add(new JScrollPane(logArea), BorderLayout.CENTER);
 
-        log("Cartella di gioco rilevata: " + gameDir);
+        applyLanguage();
+
+        log(t("logGameDirDetected") + gameDir);
+        log(t("logOsDetected") + System.getProperty("os.name"));
 
         setVisible(true);
     }
 
+    // ================= DIZIONARIO: COSTRUZIONE =================
+    private void buildDictionaries() {
+
+        it.put("browseJava", "Scegli Java");
+        it.put("useJavaw", "Usa javaw (senza terminale)");
+        it.put("javawTooltipNotAvailable", "Non disponibile su questo sistema operativo: verra' usato \"java\" normale.");
+        it.put("resizable", "Finestra ridimensionabile");
+        it.put("widthLabel", "Larghezza:");
+        it.put("heightLabel", "Altezza:");
+        it.put("play", "Gioca");
+        it.put("chooseJavaDialogTitle", "Seleziona eseguibile Java");
+        it.put("logGameDirDetected", "Cartella di gioco rilevata: ");
+        it.put("logOsDetected", "Sistema operativo rilevato: ");
+        it.put("logLaunchHeader", "=== AVVIO ===");
+        it.put("logJar", "Jar: ");
+        it.put("logEntry", "Entry: ");
+        it.put("logDimensions", "Dimensioni: ");
+        it.put("logResizableSuffix", " (ridimensionabile: ");
+        it.put("logInvalidDimension", "Valore dimensione non valido (\"%s\"), uso default %d");
+        it.put("logJavawNote", "Nota: \"javaw\" non esiste su questo sistema operativo, uso \"java\" normale.");
+        it.put("logRubyDungDetected", "Rilevata classe RubyDung nel jar (%s): avvio diretto senza applet.");
+        it.put("logJarReadError", "Impossibile leggere il jar \"%s\": %s");
+        it.put("logError", "ERRORE: ");
+
+        en.put("browseJava", "Choose Java");
+        en.put("useJavaw", "Use javaw (no console)");
+        en.put("javawTooltipNotAvailable", "Not available on this operating system: regular \"java\" will be used instead.");
+        en.put("resizable", "Resizable window");
+        en.put("widthLabel", "Width:");
+        en.put("heightLabel", "Height:");
+        en.put("play", "Play");
+        en.put("chooseJavaDialogTitle", "Select Java executable");
+        en.put("logGameDirDetected", "Game folder detected: ");
+        en.put("logOsDetected", "Operating system detected: ");
+        en.put("logLaunchHeader", "=== LAUNCH ===");
+        en.put("logJar", "Jar: ");
+        en.put("logEntry", "Entry: ");
+        en.put("logDimensions", "Dimensions: ");
+        en.put("logResizableSuffix", " (resizable: ");
+        en.put("logInvalidDimension", "Invalid dimension value (\"%s\"), using default %d");
+        en.put("logJavawNote", "Note: \"javaw\" does not exist on this operating system, using regular \"java\" instead.");
+        en.put("logRubyDungDetected", "RubyDung class detected in jar (%s): launching directly without applet.");
+        en.put("logJarReadError", "Could not read jar \"%s\": %s");
+        en.put("logError", "ERROR: ");
+    }
+
+    private String t(String key) {
+        Map<String, String> dict = "en".equals(lang) ? en : it;
+        return dict.getOrDefault(key, key);
+    }
+
+    // Applica la lingua corrente a tutti i componenti visibili.
+    // I messaggi gia' scritti nel log restano nella lingua in cui sono
+    // stati scritti; solo i nuovi log e le etichette si aggiornano.
+    private void applyLanguage() {
+        browseJavaButton.setText(t("browseJava"));
+        useJavawBox.setText(t("useJavaw"));
+        resizableBox.setText(t("resizable"));
+        widthLabel.setText(t("widthLabel"));
+        heightLabel.setText(t("heightLabel"));
+        playButton.setText(t("play"));
+
+        if (!isWindows()) {
+            useJavawBox.setToolTipText(t("javawTooltipNotAvailable"));
+        }
+    }
+
+    // ================= CROSS-PLATFORM: RILEVAMENTO OS =================
+    private boolean isWindows() {
+        return System.getProperty("os.name").toLowerCase().contains("win");
+    }
+
     // ================= PORTABILITY: RILEVAMENTO CARTELLA =================
-    // Invece di un percorso fisso ("C:\minecraftcmd2"), la cartella del
-    // launcher viene calcolata dalla posizione reale del file/classe in
-    // esecuzione. Cosi' il launcher funziona da qualunque cartella/drive
-    // sia stato copiato o estratto, senza bisogno di modifiche manuali.
     private String resolveGameDir() {
         try {
             File source = new File(
@@ -72,11 +191,6 @@ public class MinecraftCMDLauncherGUI extends JFrame {
                             .getCodeSource().getLocation().toURI()
             );
 
-            // Se la classe viene eseguita da un .jar, la cartella di gioco
-            // e' quella che contiene il jar. Se viene eseguita da un file
-            // .class "sciolto" (come fa bat/Minecraft-Launcher.bat con
-            // "cd .. && java MinecraftCMDLauncherGUI"), source e' gia' la
-            // cartella radice del launcher.
             if (source.isFile()) {
                 source = source.getParentFile();
             }
@@ -84,24 +198,34 @@ public class MinecraftCMDLauncherGUI extends JFrame {
             return source.getAbsolutePath();
 
         } catch (URISyntaxException | NullPointerException e) {
-            // fallback: cartella corrente da cui e' stato avviato java
             return System.getProperty("user.dir");
         }
     }
 
-    // Prova a indovinare un java.exe utilizzabile senza dipendere da un
-    // percorso fisso: prima cerca un runtime portabile dentro la cartella
-    // ".java" accanto al launcher, poi si affida al "java" del PATH.
+    // Ordine di ricerca del Java da usare:
+    // 1) JDK portatile dentro la cartella ".java" accanto al launcher
+    //    (mantiene il launcher completamente autosufficiente/portabile)
+    // 2) Il JDK 8 di default indicato in DEFAULT_WINDOWS_JAVA_PATH
+    //    (solo su Windows, solo se effettivamente presente sul disco)
+    // 3) Il comando generico "java" preso dal PATH di sistema
     private String guessJavaPath() {
+
+        String execName = isWindows() ? "java.exe" : "java";
+
         File bundled = new File(gameDir + File.separator + ".java"
-                + File.separator + "bin" + File.separator + "java.exe");
+                + File.separator + "bin" + File.separator + execName);
 
         if (bundled.isFile()) {
             return bundled.getAbsolutePath();
         }
 
-        // nessun runtime portabile trovato: usa il comando "java" del PATH
-        // di sistema (l'utente puo' comunque cambiarlo col pulsante "Scegli Java")
+        if (isWindows()) {
+            File defaultJdk = new File(DEFAULT_WINDOWS_JAVA_PATH);
+            if (defaultJdk.isFile()) {
+                return defaultJdk.getAbsolutePath();
+            }
+        }
+
         return "java";
     }
 
@@ -129,7 +253,7 @@ public class MinecraftCMDLauncherGUI extends JFrame {
     // ================= JAVA SELECT =================
     private void chooseJava() {
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Seleziona java.exe");
+        chooser.setDialogTitle(t("chooseJavaDialogTitle"));
 
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             javaPathField.setText(chooser.getSelectedFile().getAbsolutePath());
@@ -140,6 +264,16 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         logArea.append(msg + "\n");
     }
 
+    private int parseDimension(JTextField field, int fallback) {
+        try {
+            int value = Integer.parseInt(field.getText().trim());
+            return value > 0 ? value : fallback;
+        } catch (NumberFormatException e) {
+            log(String.format(t("logInvalidDimension"), field.getText(), fallback));
+            return fallback;
+        }
+    }
+
     // ================= LAUNCH =================
     private void launch() {
 
@@ -147,29 +281,38 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         String jar = (String) versionBox.getSelectedItem();
 
         boolean useJavaw = useJavawBox.isSelected();
+        boolean resizable = resizableBox.isSelected();
+
+        int width = parseDimension(widthField, 854);
+        int height = parseDimension(heightField, 480);
 
         List<String> cmd = new ArrayList<>();
 
-        String exec = useJavaw
+        String exec = (useJavaw && isWindows())
                 ? javaPath.replace("java.exe", "javaw.exe")
                 : javaPath;
 
+        if (useJavaw && !isWindows()) {
+            log(t("logJavawNote"));
+        }
+
         cmd.add(exec);
 
-        // ================= JVM FLAGS =================
         cmd.add("-Djava.library.path=" + gameDir + File.separator + "bin");
         cmd.add("-Dorg.lwjgl.librarypath=" + gameDir + File.separator + "bin");
         cmd.add("-Dsun.arch.data.model=32");
         cmd.add("-Djava.awt.headless=false");
 
-        // ================= INDEV FIX =================
+        cmd.add("-Dmc.width=" + width);
+        cmd.add("-Dmc.height=" + height);
+        cmd.add("-Dmc.resizable=" + resizable);
+
         if ("Indev.jar".equals(jar)) {
             cmd.add("-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=true");
             cmd.add("-Dorg.lwjgl.opengl.Display.useLegacyContext=true");
             cmd.add("-Dsun.java2d.opengl=false");
         }
 
-        // ================= CLASSPATH =================
         cmd.add("-cp");
 
         String classpath =
@@ -180,13 +323,13 @@ public class MinecraftCMDLauncherGUI extends JFrame {
 
         cmd.add(classpath);
 
-        // ================= ENTRY =================
         String entry = getEntry(jar);
         cmd.add(entry);
 
-        log("=== LAUNCH ===");
-        log("Jar: " + jar);
-        log("Entry: " + entry);
+        log(t("logLaunchHeader"));
+        log(t("logJar") + jar);
+        log(t("logEntry") + entry);
+        log(t("logDimensions") + width + "x" + height + t("logResizableSuffix") + resizable + ")");
         log(cmd.toString());
 
         try {
@@ -195,18 +338,11 @@ public class MinecraftCMDLauncherGUI extends JFrame {
             pb.inheritIO();
             pb.start();
         } catch (Exception e) {
-            log("ERROR: " + e.getMessage());
+            log(t("logError") + e.getMessage());
         }
     }
 
     // ================= ENTRY SELECT =================
-    // Prima si guarda DENTRO al jar selezionato: se contiene una classe che
-    // si chiama esattamente "RubyDung" (in qualsiasi package), il gioco
-    // viene avviato direttamente come applicazione standalone, indipendente
-    // dal nome del file .jar. Se il jar viene rinominato (es. non piu'
-    // "rd-132211.jar") ma contiene ancora RubyDung, viene comunque
-    // riconosciuto correttamente. Solo se la classe RubyDung non e' presente
-    // si ricade sul wrapper per le versioni applet-based (Infdev, Indev, ecc).
     private String getEntry(String jar) {
 
         String rubyDungClass = findRubyDungClass(
@@ -214,17 +350,13 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         );
 
         if (rubyDungClass != null) {
-            log("Rilevata classe RubyDung nel jar (" + rubyDungClass + "): avvio diretto senza applet.");
+            log(String.format(t("logRubyDungDetected"), rubyDungClass));
             return rubyDungClass;
         }
 
-        // tutte le applet-based (Infdev / Indev / ecc)
         return "MinecraftAppletWrapper";
     }
 
-    // Scansiona le entry dello zip/jar cercando un file il cui nome semplice
-    // sia esattamente "RubyDung.class" (evita falsi positivi come
-    // "RubyDung$1.class" o classi con nome simile ma diverso).
     private String findRubyDungClass(File jarFile) {
 
         if (!jarFile.isFile()) {
@@ -252,7 +384,7 @@ public class MinecraftCMDLauncherGUI extends JFrame {
             }
 
         } catch (Exception e) {
-            log("Impossibile leggere il jar \"" + jarFile.getName() + "\": " + e.getMessage());
+            log(String.format(t("logJarReadError"), jarFile.getName(), e.getMessage()));
         }
 
         return null;
