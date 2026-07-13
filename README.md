@@ -2,7 +2,7 @@ MinecraftCMD
 
 A lightweight command-line Minecraft launcher written in Java.
 
-MinecraftCMD allows you to launch custom Minecraft .jar files directly from the command prompt, making it easier to test, run and experiment with old Minecraft versions and custom builds.
+MinecraftCMD allows you to launch custom Minecraft .jar files directly from the laucher, making it easier to test, run and experiment with old Minecraft versions and custom builds.
 
 Features
 🚀 Launch Minecraft .jar files from Java-based launcher
@@ -12,18 +12,14 @@ Features
 🔧 Simple command-line usage
 Usage
 
-Run MinecraftCMD from the command prompt:
+Run MinecraftCMD:
 
-MinecraftCMD.exe <minecraft-jar>
-
-Example:
-
-MinecraftCMD.exe Minecraft.jar
+Open the batch and it will load the launcher, then select your java and minecraft version and click play!
 
 The launcher will load the specified Minecraft jar and start it using Java.
 
 Requirements
-Java Runtime Environment (JRE) or Java Development Kit (JDK)
+Java Runtime Environment (JRE) or Java Development Kit (JDK) (the jdk used for this launcher will be included inside the launcher folder)
 A compatible Minecraft jar file
 
 For old Minecraft versions, the required Java version may vary.
@@ -51,13 +47,15 @@ Legacy Minecraft main classes
 Installation
 Download the latest release.
 Extract the files.
-Open CMD in the launcher folder.
-Run MinecraftCMD with your desired jar.
+Open CMD in the launcher\bat folder.
+Run Minecraft-Launcher.bat.
 
 Example:
 
 cd MinecraftCMD
-MinecraftCMD.exe RD-132211.jar
+cd bat 
+Minecraft-Launcher.bat
+
 Building From Source
 
 Clone the repository:
