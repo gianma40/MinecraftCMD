@@ -84,6 +84,8 @@ MinecraftCMD is actively being improved with new compatibility features and lega
 
 ## License
 
-This project is released under the MIT License.
+This project is released under the GNU General Public License v3.0 (GPL-3.0).
 
-You are free to use, modify and distribute this software.
+You are free to use, modify and distribute this software, but any derivative work you distribute must also be released under the GPL-3.0 license, and the source code must remain available.
+
+See the [LICENSE](LICENSE) file for the full text.
