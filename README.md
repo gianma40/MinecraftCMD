@@ -16,7 +16,7 @@ MinecraftCMD allows you to launch custom Minecraft `.jar` files directly from th
 
 Run MinecraftCMD:
 
-1. Open `Minecraft-Launcher.bat`
+1. Open `Minecraft-Launcher.exe`
 2. The launcher will start
 3. Select your Java version
 4. Select your Minecraft version
@@ -29,7 +29,7 @@ The launcher will load the selected Minecraft `.jar` file and start it using Jav
 - Java Runtime Environment (JRE) or Java Development Kit (JDK)
 - A compatible Minecraft `.jar` file
 
-The JDK used by this launcher will be included inside the launcher folder.
+The JDK used by this launcher will be included inside the .java folder.
 
 For old Minecraft versions, the required Java version may vary.
 
@@ -60,14 +60,13 @@ Legacy Minecraft main classes
 
 1. Download the latest release
 2. Either extract the files or install with the setup wizard
-3. Open the `launcher\bat` folder
-4. Run Minecraft-Launcher.bat
+3. Open the launcher folder
+4. Run Minecraft-Launcher.exe
 
 Example:
 
 cd MinecraftCMD
-cd launcher\bat
-Minecraft-Launcher.bat
+Minecraft-Launcher
 
 ## Building From Source
 
