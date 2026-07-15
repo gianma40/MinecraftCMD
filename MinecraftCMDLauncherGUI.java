@@ -1,12 +1,17 @@
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
+import java.io.FileInputStream;
 import java.net.URISyntaxException;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -18,6 +23,23 @@ public class MinecraftCMDLauncherGUI extends JFrame {
     private static final String DEFAULT_WINDOWS_JAVA_PATH =
             "C:\\Program Files (x86)\\Java\\jdk1.8.0_202\\bin\\java.exe";
 
+    // ================= JAR CHE RICHIEDONO I FLAG OPENGL LEGACY =================
+    // Elenco di impronte SHA-256 (non nomi di file!) dei jar che, su alcune
+    // combinazioni hardware (es. GPU ibride AMD Dual Graphics), hanno bisogno
+    // dei flag di compatibilita' OpenGL per non andare in crash col
+    // Tessellator. Usiamo l'hash del CONTENUTO del jar invece del nome del
+    // file: cosi' funziona anche se il jar viene rinominato, e non serve
+    // cercare classi al suo interno (nei jar Indev le classi sono offuscate
+    // a singole lettere, quindi impossibili da riconoscere per nome).
+    //
+    // Per aggiungere un altro jar problematico: calcola il suo SHA-256 con
+    //   certutil -hashfile "percorso\del.jar" SHA256
+    // (comando gia' incluso in Windows, non serve installare nulla) e
+    // aggiungi il valore restituito (in minuscolo) alla lista qui sotto.
+    private static final Set<String> LEGACY_OPENGL_JAR_SHA256 = new HashSet<>(Arrays.asList(
+            "422f65e0aa0c61173e48815e26ea8713f6e7f38ed1dcf53d323b87d27e77a9d0" // Indev.jar
+    ));
+
     private JComboBox<String> versionBox;
     private JComboBox<String> languageBox;
     private JTextField javaPathField;
@@ -25,6 +47,7 @@ public class MinecraftCMDLauncherGUI extends JFrame {
     private JTextField heightField;
     private JCheckBox useJavawBox;
     private JCheckBox resizableBox;
+    private JCheckBox legacyLwjglBox;
     private JLabel widthLabel;
     private JLabel heightLabel;
     private JButton browseJavaButton;
@@ -49,7 +72,7 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        JPanel top = new JPanel(new GridLayout(7, 1));
+        JPanel top = new JPanel(new GridLayout(8, 1));
 
         languageBox = new JComboBox<>(new String[]{"Italiano", "English"});
         languageBox.addActionListener(e -> {
@@ -58,6 +81,7 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         });
 
         versionBox = new JComboBox<>(loadVersions());
+        versionBox.addActionListener(e -> updateLegacyLwjglAutoCheck());
 
         javaPathField = new JTextField(guessJavaPath());
 
@@ -70,6 +94,8 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         }
 
         resizableBox = new JCheckBox();
+
+        legacyLwjglBox = new JCheckBox();
 
         widthField = new JTextField("854");
         heightField = new JTextField("480");
@@ -95,6 +121,7 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         top.add(sizePanel);
         top.add(useJavawBox);
         top.add(resizableBox);
+        top.add(legacyLwjglBox);
         top.add(playButton);
 
         add(top, BorderLayout.NORTH);
@@ -108,6 +135,8 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         log(t("logGameDirDetected") + gameDir);
         log(t("logOsDetected") + System.getProperty("os.name"));
 
+        updateLegacyLwjglAutoCheck();
+
         setVisible(true);
     }
 
@@ -118,6 +147,9 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         it.put("useJavaw", "Usa javaw (senza terminale)");
         it.put("javawTooltipNotAvailable", "Non disponibile su questo sistema operativo: verra' usato \"java\" normale.");
         it.put("resizable", "Finestra ridimensionabile");
+        it.put("legacyLwjgl", "Usa LWJGL precedente (build vecchie tipo Indev)");
+        it.put("logLegacyLibsMissing", "ATTENZIONE: la cartella \"libs-legacy\" e' vuota o mancante. Metti li' dentro i jar di una LWJGL piu' vecchia (es. 2.0-2.3) prima di lanciare, altrimenti il gioco non trovera' le librerie.");
+        it.put("logLegacyNativesMissing", "ATTENZIONE: la cartella \"bin-legacy\" e' vuota o mancante. Metti li' dentro i file .dll/.so/.dylib nativi della STESSA versione di LWJGL usata in \"libs-legacy\" (jar e nativi devono combaciare esattamente, altrimenti si va in crash con NoSuchMethodError).");
         it.put("widthLabel", "Larghezza:");
         it.put("heightLabel", "Altezza:");
         it.put("play", "Gioca");
@@ -139,6 +171,9 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         en.put("useJavaw", "Use javaw (no console)");
         en.put("javawTooltipNotAvailable", "Not available on this operating system: regular \"java\" will be used instead.");
         en.put("resizable", "Resizable window");
+        en.put("legacyLwjgl", "Use older LWJGL (legacy builds like Indev)");
+        en.put("logLegacyLibsMissing", "WARNING: the \"libs-legacy\" folder is empty or missing. Put jars from an older LWJGL (e.g. 2.0-2.3) there before launching, otherwise the game won't find the libraries.");
+        en.put("logLegacyNativesMissing", "WARNING: the \"bin-legacy\" folder is empty or missing. Put the native .dll/.so/.dylib files matching the SAME LWJGL version used in \"libs-legacy\" there (jar and natives must match exactly, otherwise it crashes with NoSuchMethodError).");
         en.put("widthLabel", "Width:");
         en.put("heightLabel", "Height:");
         en.put("play", "Play");
@@ -169,6 +204,7 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         browseJavaButton.setText(t("browseJava"));
         useJavawBox.setText(t("useJavaw"));
         resizableBox.setText(t("resizable"));
+        legacyLwjglBox.setText(t("legacyLwjgl"));
         widthLabel.setText(t("widthLabel"));
         heightLabel.setText(t("heightLabel"));
         playButton.setText(t("play"));
@@ -181,6 +217,25 @@ public class MinecraftCMDLauncherGUI extends JFrame {
     // ================= CROSS-PLATFORM: RILEVAMENTO OS =================
     private boolean isWindows() {
         return System.getProperty("os.name").toLowerCase().contains("win");
+    }
+
+    // Ogni volta che cambia la versione selezionata, controlliamo se il suo
+    // hash SHA-256 e' tra quelli noti per aver bisogno di librerie LWJGL
+    // piu' vecchie (stessa lista usata per i flag OpenGL legacy, vedi
+    // LEGACY_OPENGL_JAR_SHA256) e spuntiamo/despuntiamo la checkbox da soli.
+    // L'utente puo' comunque modificarla a mano in qualunque momento, ad
+    // esempio per provare la libreria vecchia anche su altre build.
+    private void updateLegacyLwjglAutoCheck() {
+
+        String jar = (String) versionBox.getSelectedItem();
+
+        if (jar == null || gameDir == null) {
+            return;
+        }
+
+        File jarFile = new File(gameDir + File.separator + "versions" + File.separator + jar);
+
+        legacyLwjglBox.setSelected(needsLegacyOpenglFlags(jarFile));
     }
 
     // ================= PORTABILITY: RILEVAMENTO CARTELLA =================
@@ -298,8 +353,18 @@ public class MinecraftCMDLauncherGUI extends JFrame {
 
         cmd.add(exec);
 
-        cmd.add("-Djava.library.path=" + gameDir + File.separator + "bin");
-        cmd.add("-Dorg.lwjgl.librarypath=" + gameDir + File.separator + "bin");
+        boolean useLegacyLwjgl = legacyLwjglBox.isSelected();
+        String nativesFolderName = useLegacyLwjgl ? "bin-legacy" : "bin";
+
+        File nativesFolder = new File(gameDir, nativesFolderName);
+        File[] nativesContents = nativesFolder.listFiles();
+
+        if (useLegacyLwjgl && (!nativesFolder.isDirectory() || nativesContents == null || nativesContents.length == 0)) {
+            log(t("logLegacyNativesMissing"));
+        }
+
+        cmd.add("-Djava.library.path=" + gameDir + File.separator + nativesFolderName);
+        cmd.add("-Dorg.lwjgl.librarypath=" + gameDir + File.separator + nativesFolderName);
         cmd.add("-Dsun.arch.data.model=32");
         cmd.add("-Djava.awt.headless=false");
 
@@ -307,7 +372,7 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         cmd.add("-Dmc.height=" + height);
         cmd.add("-Dmc.resizable=" + resizable);
 
-        if ("Indev.jar".equals(jar)) {
+        if (needsLegacyOpenglFlags(new File(gameDir + File.separator + "versions" + File.separator + jar))) {
             cmd.add("-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=true");
             cmd.add("-Dorg.lwjgl.opengl.Display.useLegacyContext=true");
             cmd.add("-Dsun.java2d.opengl=false");
@@ -315,9 +380,18 @@ public class MinecraftCMDLauncherGUI extends JFrame {
 
         cmd.add("-cp");
 
+        String libsFolderName = useLegacyLwjgl ? "libs-legacy" : "libs";
+
+        File libsFolder = new File(gameDir, libsFolderName);
+        File[] libsContents = libsFolder.listFiles();
+
+        if (useLegacyLwjgl && (!libsFolder.isDirectory() || libsContents == null || libsContents.length == 0)) {
+            log(t("logLegacyLibsMissing"));
+        }
+
         String classpath =
                 gameDir + File.separator + "versions" + File.separator + jar + File.pathSeparator +
-                gameDir + File.separator + "libs" + File.separator + "*" + File.pathSeparator +
+                gameDir + File.separator + libsFolderName + File.separator + "*" + File.pathSeparator +
                 gameDir + File.separator + "retrowrapper.jar" + File.pathSeparator +
                 gameDir;
 
@@ -388,6 +462,62 @@ public class MinecraftCMDLauncherGUI extends JFrame {
         }
 
         return null;
+    }
+
+    // ================= RILEVAMENTO JAR CHE RICHIEDONO I FLAG LEGACY =================
+    // In precedenza il controllo era "Indev.jar".equals(jar): funzionava solo
+    // se il file si chiamava esattamente cosi'. Un tentativo successivo
+    // cercava una classe "LevelGenerator" dentro il jar, ma nei jar Indev
+    // reali le classi sono offuscate a singole lettere (a.class, b.class...),
+    // quindi quel nome non esiste da nessuna parte e il controllo non
+    // scattava mai.
+    //
+    // Soluzione: invece di guardare nome del file o nomi di classi, calcoliamo
+    // l'impronta SHA-256 del CONTENUTO del jar e la confrontiamo con
+    // LEGACY_OPENGL_JAR_SHA256 (vedi costante in cima al file). L'hash
+    // identifica il file in modo univoco a prescindere da come si chiama, e
+    // non dipende dal fatto che le classi al suo interno siano leggibili o
+    // offuscate.
+    private boolean needsLegacyOpenglFlags(File jarFile) {
+
+        String hash = computeFileSha256(jarFile);
+
+        return hash != null && LEGACY_OPENGL_JAR_SHA256.contains(hash);
+    }
+
+    // Calcola lo SHA-256 dell'intero contenuto del file, restituito come
+    // stringa esadecimale minuscola (stesso formato che da' "certutil
+    // -hashfile ... SHA256" su Windows, cosi' i valori si possono confrontare
+    // a colpo d'occhio).
+    private String computeFileSha256(File file) {
+
+        if (!file.isFile()) {
+            return null;
+        }
+
+        try (FileInputStream fis = new FileInputStream(file)) {
+
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8192];
+            int read;
+
+            while ((read = fis.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+
+            byte[] hashBytes = digest.digest();
+            StringBuilder sb = new StringBuilder(hashBytes.length * 2);
+
+            for (byte b : hashBytes) {
+                sb.append(String.format("%02x", b));
+            }
+
+            return sb.toString();
+
+        } catch (Exception e) {
+            log(String.format(t("logJarReadError"), file.getName(), e.getMessage()));
+            return null;
+        }
     }
 
     public static void main(String[] args) {

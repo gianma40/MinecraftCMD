@@ -35,7 +35,9 @@ public class MinecraftAppletWrapper {
 
         String[] candidates = {
                 "net.minecraft.client.MinecraftApplet",
+		"MinecraftApplet",
                 "net.minecraft.client.Minecraft",
+		"net.minecraft.client.main.Main",
                 "com.mojang.minecraft.MinecraftApplet"
         };
 
