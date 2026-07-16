@@ -30,10 +30,11 @@ The launcher will load the selected Minecraft `.jar` file and start it using Jav
 > 1. Take the Minecraft `.jar` file of the version you wish to add.
 > 2. **Drag and drop** the `.jar` file directly onto `RimuoviMetaInf.bat`.
 > 3. The script will automatically remove the `META-INF` folder from the package.
-> 4. Move the newly modified `.jar` file into the **`versions`** folder inside the launcher directory.
+> 4. Remove the "-noMetaInf" from the file name.
+> 5. Move the newly modified `.jar` file into the **`versions`** folder inside the launcher directory.
 
 ## Requirements
-- Java Runtime Environment (JRE) or Java Development Kit (JDK)
+- x86 Java Runtime Environment (JRE) or Java Development Kit (JDK)
 - A compatible Minecraft `.jar` file, tested from rd-132211 to release 1.12.2
 
 The JDK used by this launcher will be included inside the `.java` folder.
