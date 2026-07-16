@@ -34,7 +34,7 @@ The launcher will load the selected Minecraft `.jar` file and start it using Jav
 
 ## Requirements
 - Java Runtime Environment (JRE) or Java Development Kit (JDK)
-- A compatible Minecraft `.jar` file, tested from rd-132211 to release 1.2.5
+- A compatible Minecraft `.jar` file, tested from rd-132211 to release 1.12.2
 
 The JDK used by this launcher will be included inside the `.java` folder.
 For old Minecraft versions, the required Java version may vary.
